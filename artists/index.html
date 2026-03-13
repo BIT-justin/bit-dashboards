@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BIT4A Lifecycle WoW Dashboard — Mar 10, 2026</title>
+<script>
+(function() {
+  const PASS = 'boost';
+  const KEY  = 'bit_dash_auth';
+  if (sessionStorage.getItem(KEY) !== '1') {
+    document.addEventListener('DOMContentLoaded', function() {
+      const overlay = document.getElementById('auth-overlay');
+      const input   = document.getElementById('auth-input');
+      const btn     = document.getElementById('auth-btn');
+      const err     = document.getElementById('auth-err');
+      overlay.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+      function attempt() {
+        if (input.value === PASS) {
+          sessionStorage.setItem(KEY, '1');
+          overlay.style.display = 'none';
+          document.body.style.overflow = '';
+        } else {
+          err.style.display = 'block';
+          input.value = '';
+          input.focus();
+        }
+      }
+      btn.addEventListener('click', attempt);
+      input.addEventListener('keydown', function(e) { if (e.key === 'Enter') attempt(); });
+      input.focus();
+    });
+  }
+})();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #FBF5FD; color: #1a202c; font-size: 14px; }
+
+/* ── Header ── */
+.header { background: linear-gradient(135deg, #000000 0%, #63346C 30%, #BE70CC 70%, #FFE18E 100%); color: white; padding: 20px 32px 0; }
+.header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+/* h1 replaced by inline SVG logo */
+.header .meta { font-size: 12px; opacity: 0.75; margin-top: 3px; }
+.header .badge { background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.25); border-radius: 20px; padding: 4px 12px; font-size: 12px; }
+
+/* ── Nav tabs ── */
+.nav-tabs { display: flex; gap: 4px; padding-top: 4px; }
+.nav-tab { padding: 10px 20px; cursor: pointer; font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.65); border-radius: 8px 8px 0 0; border: none; background: transparent; transition: all 0.15s; }
+.nav-tab:hover { color: white; background: rgba(255,255,255,0.12); }
+.nav-tab.active { color: #63346C; background: #FBF5FD; }
+
+/* ── Tab panels ── */
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── Summary cards ── */
+.summary { display: flex; gap: 12px; padding: 20px 32px 0; flex-wrap: wrap; }
+.card { background: white; border-radius: 10px; padding: 16px 20px; flex: 1; min-width: 160px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); border-top: 3px solid #BE70CC; }
+.card.green { border-top-color: #16a34a; }
+.card.red   { border-top-color: #dc2626; }
+.card.gold  { border-top-color: #FFE18E; }
+.card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; font-weight: 600; }
+.card .value { font-size: 24px; font-weight: 700; color: #1a202c; margin-top: 3px; line-height: 1; }
+.card .wow   { font-size: 12px; font-weight: 600; margin-top: 5px; }
+.pos { color: #16a34a; } .neg { color: #dc2626; } .neu { color: #64748b; }
+
+/* ── Charts row ── */
+.charts { display: flex; gap: 12px; padding: 16px 32px 0; flex-wrap: wrap; }
+.chart-box { background: white; border-radius: 10px; padding: 18px; flex: 1; min-width: 280px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); }
+.chart-box h3 { font-size: 11px; font-weight: 700; color: #63346C; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+.chart-box canvas { max-height: 200px; }
+
+/* ── Metric sections ── */
+.sections { padding: 16px 32px 32px; display: flex; flex-direction: column; gap: 16px; }
+.section { background: white; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); overflow: hidden; }
+.section-header { padding: 12px 20px; background: #63346C; color: white; font-size: 13px; font-weight: 700; letter-spacing: 0.3px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+.section-header:hover { background: #7A4089; }
+.section-header .toggle { font-size: 16px; transition: transform 0.2s; }
+.section-body { overflow-x: auto; }
+.section-body.collapsed { display: none; }
+
+table { width: 100%; border-collapse: collapse; }
+thead th { background: #F5E8FA; color: #63346C; padding: 9px 14px; text-align: right; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 2px solid #EDD5F2; white-space: nowrap; }
+thead th:first-child { text-align: left; min-width: 240px; }
+thead th:nth-child(2) { text-align: left; }
+tbody tr:nth-child(even) { background: #fafbfc; }
+tbody tr:hover { background: #FDF5FE; }
+tbody td { padding: 9px 14px; text-align: right; border-bottom: 1px solid #f1f5f9; color: #1a202c; }
+tbody td:first-child { text-align: left; color: #374151; font-weight: 500; padding-left: 20px; }
+tbody td:nth-child(2) { text-align: left; color: #64748b; font-size: 12px; font-style: italic; }
+.rate-row td:first-child { color: #94a3b8; font-size: 12px; padding-left: 32px; font-weight: 400; }
+.wow-pos { color: #16a34a; font-weight: 700; }
+.wow-neg { color: #dc2626; font-weight: 700; }
+.wow-neu { color: #64748b; font-weight: 600; }
+.sub-header td { background: #F5E8FA; font-weight: 700; color: #63346C; font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px; padding: 7px 14px; }
+.sub-header td:first-child { padding-left: 20px; }
+
+/* ── 4-week trend table ── */
+.trend-table-wrap { background: white; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); overflow: hidden; margin: 0 32px 32px; }
+.trend-table-wrap h3 { padding: 12px 20px; background: #63346C; color: white; font-size: 13px; font-weight: 700; }
+.trend-table-wrap table thead th { background: #F5E8FA; color: #63346C; }
+.trend-table-wrap table thead th:nth-child(n+2) { text-align: center; }
+.trend-table-wrap table tbody td:nth-child(n+2) { text-align: center; }
+
+/* ── Canvas section ── */
+.group-label { font-size: 13px; font-weight: 700; color: #63346C; background: #F5E8FA; padding: 10px 16px; margin-top: 16px; border-radius: 8px 8px 0 0; }
+.table-wrapper { overflow-x: auto; border-radius: 0 0 8px 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); margin-bottom: 0; }
+.table-wrapper table thead th { background: #63346C; color: white; }
+.tfoot-row td { background: #fef9c3 !important; font-weight: 700; border-top: 2px solid #63346C; }
+.zero-row td { color: #94a3b8 !important; font-style: italic; }
+.canvas-section { padding: 0 32px 32px; }
+/* Current value columns — bold & dark (canvas table) */
+.table-wrapper table tbody td:nth-child(2),
+.table-wrapper table tbody td:nth-child(5),
+.table-wrapper table tbody td:nth-child(7),
+.table-wrapper table tbody td:nth-child(9),
+.table-wrapper table tbody td:nth-child(12) { color: #1a202c; font-size: 13px; font-weight: 700; font-style: normal; text-align: right; }
+/* Previous value columns — muted (canvas table) */
+.table-wrapper table tbody td:nth-child(3),
+.table-wrapper table tbody td:nth-child(10),
+.table-wrapper table tbody td:nth-child(13) { color: #64748b; font-size: 12px; font-style: normal; }
+/* Current value column — bold & dark (lifecycle section tables) */
+#tab-lifecycle .section-body table tbody td:nth-child(3) { color: #1a202c; font-size: 13px; font-weight: 700; font-style: normal; }
+/* Previous value column — muted (lifecycle section tables) */
+#tab-lifecycle .section-body table tbody td:nth-child(4) { color: #64748b; font-size: 12px; font-style: normal; }
+
+/* ── Definitions tab ── */
+.defs-section { padding: 24px 32px 32px; display: flex; flex-direction: column; gap: 24px; }
+.sources-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.source-card { background: white; border-radius: 10px; padding: 16px 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); display: flex; align-items: flex-start; gap: 12px; }
+.source-icon { font-size: 22px; line-height: 1; margin-top: 1px; }
+.source-info .source-name { font-weight: 700; font-size: 13px; color: #1a202c; }
+.source-info .source-desc { font-size: 12px; color: #64748b; margin-top: 3px; line-height: 1.4; }
+.defs-table-wrap { background: white; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); overflow: hidden; }
+.defs-table-wrap h3 { padding: 12px 20px; background: #63346C; color: white; font-size: 13px; font-weight: 700; }
+.defs-table-wrap table thead th { background: #F5E8FA; color: #63346C; text-align: left; }
+.defs-table-wrap table thead th:first-child { min-width: 200px; }
+.defs-table-wrap table tbody td { text-align: left; }
+.defs-table-wrap table tbody td:nth-child(3) { color: #475569; font-size: 13px; }
+.defs-table-wrap table tbody td:nth-child(4) { color: #64748b; font-size: 12px; font-style: italic; }
+.defs-table-wrap table tbody td:nth-child(5) { color: #94a3b8; font-size: 12px; }
+.def-group-row td { background: #F5E8FA !important; font-weight: 700; color: #63346C; font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px; }
+.section-label { font-size: 14px; font-weight: 700; color: #63346C; margin-bottom: 10px; }
+
+/* ── Site Traffic tab ── */
+.st-table thead th { text-align: right !important; }
+.st-table thead th:first-child { text-align: left !important; min-width: 200px; }
+.st-table tbody td { text-align: right; color: #1a202c; font-style: normal; }
+.st-table tbody td:first-child { text-align: left; color: #374151; font-weight: 500; padding-left: 20px; }
+.st-table thead th:nth-child(3) { background: #F1E8FA; }
+.st-table thead th:nth-child(4) { background: #F1E8FA; }
+.st-table tbody tr td:nth-child(3) { background: #FDF5FE; color: #63346C; }
+.st-table tbody tr td:nth-child(4) { background: #FDF5FE; }
+.url-cell { font-family: monospace; font-size: 12px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pct-note { color: #94a3b8; font-size: 11px; margin-left: 3px; }
+
+/* ── Source column (repositioned to end) ── */
+th.source-col { background: #fbf2fd !important; color: #d4a0dc !important; font-size: 10px !important; font-weight: 600 !important; text-transform: uppercase !important; letter-spacing: 0.3px !important; text-align: left !important; white-space: nowrap; width: 120px; }
+td.source-col { font-size: 11px !important; color: #94a3b8 !important; font-style: italic; font-weight: 400 !important; text-align: left !important; white-space: nowrap; padding-left: 12px !important; width: 120px; }
+
+/* ── Lifecycle section tables: fixed layout so columns align across all sections ── */
+#tab-lifecycle .section-body table { table-layout: fixed; width: 100%; }
+#tab-lifecycle .section-body table th:first-child,
+#tab-lifecycle .section-body table td:first-child { width: 255px; min-width: 255px; white-space: normal; }
+#tab-lifecycle .section-body table th:not(:first-child):not(.source-col) { text-align: right; }
+#tab-lifecycle .section-body table td:not(:first-child):not(.source-col) { text-align: right; }
+
+/* ── Insights bar ── */
+.insights-bar { margin: 16px 32px 0; background: white; border-radius: 10px; border-left: 4px solid #BE70CC; padding: 14px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); }
+.insights-bar .insights-title { font-size: 11px; font-weight: 700; color: #63346C; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.insights-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.insights-list li { font-size: 13px; color: #374151; line-height: 1.45; padding-left: 18px; position: relative; }
+.insights-list li::before { content: '→'; position: absolute; left: 0; color: #BE70CC; font-weight: 700; }
+.insights-list li strong { color: #1a202c; }
+.ins-pos { color: #16a34a; font-weight: 700; }
+.ins-neg { color: #dc2626; font-weight: 700; }
+.ins-neu { color: #64748b; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- ── Password overlay ── -->
+<div id="auth-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:linear-gradient(135deg,#000000 0%,#63346C 30%,#BE70CC 70%,#FFE18E 100%);align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:16px;padding:40px 48px;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;width:340px;">
+    <div style="font-size:22px;font-weight:800;color:#63346C;margin-bottom:6px;">BIT Dashboards</div>
+    <div style="font-size:13px;color:#64748b;margin-bottom:28px;">Enter the access password to continue</div>
+    <input id="auth-input" type="password" placeholder="Password" style="width:100%;padding:12px 16px;border:2px solid #EDD5F2;border-radius:8px;font-size:15px;outline:none;margin-bottom:12px;color:#1a202c;" />
+    <div id="auth-err" style="display:none;color:#dc2626;font-size:12px;margin-bottom:10px;">Incorrect password — try again.</div>
+    <button id="auth-btn" style="width:100%;padding:12px;background:linear-gradient(135deg,#63346C,#BE70CC);color:white;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;">Enter</button>
+  </div>
+</div>
+
+<div class="header">
+  <div class="header-top">
+    <div>
+      <div style="margin-bottom:7px"><svg height="34" viewBox="0 0 923 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block"><path d="M46.6699 20H26.6699V46.67H46.6699V20Z" fill="#C567D7"/><path d="M73.3301 20H53.3301V46.67H73.3301V20Z" fill="#C567D7"/><path d="M100 0H80V46.67H100V0Z" fill="#C567D7"/><path d="M26.67 53.33V73.33H80V80H20V0H0V100H100V53.33H26.67Z" fill="#C567D7"/><path d="M129.46 74.17H129.33V80H120.93V20H129.33V46.23H129.5C131.98 41.94 136.35 39.11 142.87 39.11C153.33 39.11 162.15 47 162.15 60.2C162.15 73.4 153.33 81.33 142.83 81.33C136.33 81.33 131.94 78.45 129.46 74.17ZM153.2 60.17C153.2 52.62 148.4 47.31 141.03 47.31C133.66 47.31 128.86 52.62 128.86 60.17C128.86 67.72 133.66 73.02 141.03 73.02C148.4 73.02 153.2 67.74 153.2 60.2V60.17Z" fill="white"/><path d="M167.87 60.2C167.87 47 176.7 39.11 187.15 39.11C193.67 39.11 198.04 41.94 200.53 46.23H200.7V40.4H209.1V80H200.7V74.17H200.53C198.04 78.45 193.67 81.28 187.15 81.28C176.7 81.33 167.87 73.4 167.87 60.2ZM201.13 60.2C201.13 52.65 196.33 47.33 188.95 47.33C181.57 47.33 176.78 52.64 176.78 60.19C176.78 67.74 181.58 73.04 188.95 73.04C196.32 73.04 201.13 67.74 201.13 60.2V60.2Z" fill="white"/><path d="M255.68 55.65V80H247.33V57.11C247.33 50.34 243.9 47.51 238.24 47.51C232.07 47.51 227.7 51.2 227.7 61.05V80.05H219.3V40.4H227.7V46.4H227.87C230.44 41.85 234.73 39.11 240.82 39.11C249.25 39.11 255.68 43.65 255.68 55.65Z" fill="white"/><path d="M263.33 60.2C263.33 47 272.16 39.11 282.61 39.11C289.13 39.11 293.5 41.94 295.98 46.23H296.16V20H304.56V80H296.16V74.17H295.98C293.5 78.45 289.13 81.28 282.61 81.28C272.11 81.33 263.33 73.4 263.33 60.2ZM296.58 60.2C296.53 52.65 291.73 47.33 284.33 47.33C276.93 47.33 272.16 52.64 272.16 60.19C272.16 67.74 276.96 73.04 284.33 73.04C291.7 73.04 296.53 67.74 296.53 60.2H296.58Z" fill="white"/><path d="M311.23 77.08L315 69.62C318.787 71.9822 323.138 73.2874 327.6 73.4C331.6 73.4 333.77 72.2 333.77 69.71C333.77 68.08 332.92 66.88 329.57 65.25L322.33 61.74C316.33 58.91 314.02 54.88 314.02 50.34C314.02 43.05 319.42 39.11 328.08 39.11C332.813 39.1935 337.479 40.2451 341.79 42.2L338.36 49.48C335.054 47.9279 331.47 47.054 327.82 46.91C324.13 46.91 322.93 48.11 322.93 49.91C322.93 51.71 324.05 53 327.48 54.63L334.85 58.14C339.99 60.54 342.73 63.97 342.73 69.28C342.73 77.34 336.56 81.28 327.3 81.28C321.672 81.2775 316.139 79.8314 311.23 77.08Z" fill="white"/><path d="M354.33 31.14C352.966 31.14 351.658 30.5988 350.692 29.6351C349.727 28.6715 349.183 27.3641 349.18 26C349.183 24.6349 349.726 23.3265 350.691 22.3613C351.657 21.3961 352.965 20.8526 354.33 20.85C355.694 20.8526 357.002 21.3964 357.965 22.3619C358.929 23.3274 359.47 24.6358 359.47 26C359.47 27.3632 358.929 28.6706 357.965 29.6345C357.001 30.5984 355.693 31.14 354.33 31.14ZM350.13 40.4H358.53V80H350.13V40.4Z" fill="white"/><path d="M405.33 55.65V80H396.93V57.11C396.93 50.34 393.5 47.51 387.84 47.51C381.67 47.51 377.3 51.2 377.3 61.05V80.05H368.9V40.4H377.3V46.4H377.47C380.04 41.85 384.33 39.11 390.41 39.11C398.87 39.11 405.33 43.65 405.33 55.65Z" fill="white"/><path d="M425.94 47.51V68.25C425.94 71.08 427.14 72.37 430.05 72.37H432.11V80.08H428.25C421.31 80.08 417.54 76.4 417.54 69.88V47.51H410.54V40.4H417.54V24.54H425.94V40.4H434V47.51H425.94Z" fill="white"/><path d="M480.45 60.2C480.45 72.37 471.2 81.28 458.77 81.28C446.34 81.28 437.08 72.33 437.08 60.2C437.08 48.07 446.33 39.11 458.77 39.11C471.21 39.11 480.45 48.03 480.45 60.2ZM445.99 60.2C445.99 68 451.22 73.05 458.77 73.05C466.32 73.05 471.54 68.05 471.54 60.2C471.54 52.35 466.33 47.33 458.77 47.33C451.21 47.33 445.99 52.4 445.99 60.2Z" fill="white"/><path d="M543.14 40.4L529.85 80H522.14L512.71 51.62L503.2 80H495.48L482.2 40.4H491.45L499.45 68.94L508.62 40.4H516.76L525.93 68.94L533.93 40.4H543.14Z" fill="white"/><path d="M585.2 55.65V80H576.8V57.11C576.8 50.34 573.37 47.51 567.72 47.51C561.55 47.51 557.17 51.2 557.17 61.05V80.05H548.77V40.4H557.17V46.4H557.33C559.91 41.85 564.19 39.11 570.33 39.11C578.77 39.11 585.2 43.65 585.2 55.65Z" fill="white"/><path d="M627.414 23.214H628.36V19H627.156C619.502 19 613.998 22.87 613.998 32.846V40.328H606V44.198H613.998V80.06H618.384V44.198H628.274V40.328H618.384V32.932C618.384 25.536 622.168 23.214 627.414 23.214Z" fill="#C567D7"/><path d="M649.826 39.038C637.442 39.038 628.584 47.81 628.584 60.194C628.584 72.578 637.442 81.35 649.826 81.35C662.296 81.35 671.154 72.578 671.154 60.194C671.154 47.81 662.296 39.038 649.826 39.038ZM649.826 43.338C659.286 43.338 666.596 50.046 666.596 60.194C666.596 70.342 659.286 77.05 649.826 77.05C640.452 77.05 633.142 70.342 633.142 60.194C633.142 50.046 640.452 43.338 649.826 43.338Z" fill="#C567D7"/><path d="M698.113 39.124H696.737C689.943 39.124 684.955 43.51 683.579 49.444H683.407V40.328H679.107V80.06H683.407V60.538C683.407 50.476 688.481 44.112 696.909 44.112H698.113V39.124Z" fill="#C567D7"/><path d="M734.949 81.35C742.775 81.35 748.365 77.566 751.289 71.976H751.461V80.06H755.847V40.328H751.461V48.412H751.289C748.365 42.822 742.775 39.038 734.949 39.038C723.683 39.038 714.997 47.122 714.997 60.194C714.997 73.266 723.683 81.35 734.949 81.35ZM735.637 77.05C725.919 77.05 719.555 69.998 719.555 60.194C719.555 50.39 725.919 43.338 735.637 43.338C745.441 43.338 751.805 50.39 751.805 60.194C751.805 69.998 745.441 77.05 735.637 77.05Z" fill="#C567D7"/><path d="M786.226 39.124H784.85C778.056 39.124 773.068 43.51 771.692 49.444H771.52V40.328H767.22V80.06H771.52V60.538C771.52 50.476 776.594 44.112 785.022 44.112H786.226V39.124Z" fill="#C567D7"/><path d="M811.565 44.198V40.328H802.191V24.418H797.891V40.328H789.721V44.198H797.891V70.686C797.891 77.05 801.675 80.232 807.265 80.232H810.017V76.018H807.867C804.255 76.018 802.191 73.868 802.191 69.826V44.198H811.565Z" fill="#C567D7"/><path d="M819.452 80.06H823.838V40.328H819.452V80.06Z" fill="#C567D7"/><path d="M846.967 81.35C855.567 81.35 861.157 77.738 861.157 70.6C861.157 64.666 857.201 61.742 852.213 59.42L845.075 56.152C840.861 54.26 838.453 52.368 838.453 49.014C838.453 45.144 841.979 43.252 847.053 43.252C851.095 43.252 854.707 44.37 858.233 46.176L860.211 42.22C856.255 40.242 851.783 39.038 847.053 39.038C839.141 39.038 833.809 42.564 833.809 49.186C833.809 54.174 836.991 57.528 842.667 60.108L850.149 63.548C853.847 65.268 856.599 67.246 856.599 70.686C856.599 74.212 853.761 77.136 847.139 77.136C842.065 77.136 836.905 75.416 832.605 72.492L830.369 76.276C834.669 79.372 840.689 81.35 846.967 81.35Z" fill="#C567D7"/><path d="M887.067 44.198V40.328H877.693V24.418H873.393V40.328H865.223V44.198H873.393V70.686C873.393 77.05 877.177 80.232 882.767 80.232H885.519V76.018H883.369C879.757 76.018 877.693 73.868 877.693 69.826V44.198H887.067Z" fill="#C567D7"/><path d="M907.94 81.35C916.54 81.35 922.13 77.738 922.13 70.6C922.13 64.666 918.174 61.742 913.186 59.42L906.048 56.152C901.834 54.26 899.426 52.368 899.426 49.014C899.426 45.144 902.952 43.252 908.026 43.252C912.068 43.252 915.68 44.37 919.206 46.176L921.184 42.22C917.228 40.242 912.756 39.038 908.026 39.038C900.114 39.038 894.782 42.564 894.782 49.186C894.782 54.174 897.964 57.528 903.64 60.108L911.122 63.548C914.82 65.268 917.572 67.246 917.572 70.686C917.572 74.212 914.734 77.136 908.112 77.136C903.038 77.136 897.878 75.416 893.578 72.492L891.342 76.276C895.642 79.372 901.662 81.35 907.94 81.35Z" fill="#C567D7"/><circle cx="821.592" cy="29.06" r="4" fill="#C567D7"/></svg></div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;opacity:0.8;margin-bottom:3px">Lifecycle WoW Dashboard</div>
+      <div class="meta">Current Week: Mar 1–7, 2026 &nbsp;·&nbsp; Previous Week: Feb 22–28, 2026 &nbsp;·&nbsp; Generated Mar 10, 2026</div>
+    </div>
+    <div class="badge">📅 Weekly Refresh</div>
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showTab('lifecycle', this)">📊 Lifecycle Metrics</button>
+    <button class="nav-tab" onclick="showTab('canvas', this)">✉️ Canvas Performance</button>
+    <button class="nav-tab" onclick="showTab('sitetraffic', this)">🌐 Site Traffic</button>
+    <button class="nav-tab" onclick="showTab('definitions', this)">📖 Metric Definitions</button>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- TAB 1: LIFECYCLE METRICS                                       -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div id="tab-lifecycle" class="tab-panel active">
+
+  <!-- Summary cards -->
+  <div class="summary">
+    <div class="card green">
+      <div class="label">Signups — Step 3 Completions</div>
+      <div class="value">1,205</div>
+      <div class="wow pos">▲ +5.9% WoW &nbsp;·&nbsp; prev 1,138</div>
+    </div>
+    <div class="card green">
+      <div class="label">First Artist Claimed</div>
+      <div class="value">1,346</div>
+      <div class="wow pos">▲ +29.4% WoW &nbsp;·&nbsp; prev 1,040</div>
+    </div>
+    <div class="card green">
+      <div class="label">Avg Daily Active Users</div>
+      <div class="value">3,818</div>
+      <div class="wow neu">▲ +2.5% WoW &nbsp;·&nbsp; prev 3,725</div>
+    </div>
+    <div class="card green">
+      <div class="label">Events Published</div>
+      <div class="value">54,407</div>
+      <div class="wow neu">▲ +4.4% WoW &nbsp;·&nbsp; prev 52,104</div>
+    </div>
+    <div class="card green">
+      <div class="label">Total Purchases</div>
+      <div class="value">218</div>
+      <div class="wow pos">▲ +44.4% WoW &nbsp;·&nbsp; prev 151</div>
+    </div>
+    <div class="card green">
+      <div class="label">Braze-Attributed Purchases</div>
+      <div class="value">69</div>
+      <div class="wow pos">▲ +68.3% WoW &nbsp;·&nbsp; prev 41</div>
+    </div>
+    <div class="card green">
+      <div class="label">Promoted Email Revenue</div>
+      <div class="value">$16,275</div>
+      <div class="wow pos">▲ +13.9% WoW &nbsp;·&nbsp; 133 campaigns</div>
+    </div>
+    <div class="card red">
+      <div class="label">Email Builder Revenue</div>
+      <div class="value">$1,686</div>
+      <div class="wow neg">▼ −39.2% WoW &nbsp;·&nbsp; 796 campaigns</div>
+    </div>
+  </div>
+
+  <!-- Lifecycle Insights -->
+  <div class="insights-bar">
+    <div class="insights-title">💡 Top Insights — Week Ending Mar 7, 2026</div>
+    <ul class="insights-list">
+      <li><strong>Braze-Attributed Purchases</strong> surged <span class="ins-pos">▲ +68.3% WoW</span> to 69 — the Salesforce Braze attach rate reached a new high of 31.7% (up from 21.6% four weeks ago), the clearest signal yet of lifecycle program influence on revenue. See the Canvas Performance tab for the full three-source revenue breakdown.</li>
+      <li><strong>Total Purchases</strong> hit 218, up <span class="ins-pos">▲ +44.4% WoW</span>, tracking well above the 4-week average of 188 and approaching the highest week in recent history.</li>
+      <li><strong>First Artist Claimed</strong> spiked <span class="ins-pos">▲ +29.4% WoW</span> to 1,346 — 14.8% above the 4-week average, a strong onboarding activation signal.</li>
+      <li><strong>Promoted Email</strong> had its strongest week yet: <span class="ins-pos">$16,275 Tableau-estimated revenue</span> (<span class="ins-pos">▲ +13.9% WoW</span>), 133 campaigns, and 266K estimated email reach (<span class="ins-pos">▲ +22.0% WoW</span>) — all-time highs across 3 weeks of tracked data. Tableau figures are the preferred revenue reference; Braze-attributed numbers will differ — see Canvas Performance for context.</li>
+      <li><strong>Email Builder revenue</strong> dropped <span class="ins-neg">▼ −39.2% WoW</span> to $1,686 — despite user growth continuing (541 artists, <span class="ins-pos">▲ +6.5%</span>). The revenue swing is likely a one-time spike in Feb 28 overages rather than a structural decline; worth monitoring.</li>
+    </ul>
+  </div>
+
+  <!-- Trend charts -->
+  <div class="charts">
+    <div class="chart-box">
+      <h3>Signups (BIT_signup) — 4-Week Trend</h3>
+      <canvas id="signupTrend"></canvas>
+    </div>
+    <div class="chart-box">
+      <h3>Avg Daily Active Users — 4-Week Trend</h3>
+      <canvas id="dauTrend"></canvas>
+    </div>
+    <div class="chart-box">
+      <h3>Total Purchases — 4-Week Trend</h3>
+      <canvas id="purchaseTrend"></canvas>
+    </div>
+    <div class="chart-box">
+      <h3>Sessions — 4-Week Trend</h3>
+      <canvas id="sessionTrend"></canvas>
+    </div>
+  </div>
+
+  <!-- Metric sections -->
+  <div class="sections">
+
+    <!-- ACQUISITION -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        🚀 ACQUISITION
+        <span class="toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <table>
+          <thead><tr>
+            <th>Metric</th><th>Source</th>
+            <th>Current Wk</th><th>Prev Wk</th><th>Change</th><th>% Change</th>
+          </tr></thead>
+          <tbody>
+            <tr><td>Signup Step 1 — Click Sign Up</td><td>Google Analytics</td><td>1,553</td><td>1,492</td><td>+61</td><td class="wow-neu">▲ +4.1%</td></tr>
+            <tr><td>Signup Step 2 — Create Account</td><td>Google Analytics</td><td>1,230</td><td>1,175</td><td>+55</td><td class="wow-neu">▲ +4.7%</td></tr>
+            <tr><td>Signup Step 3 — Submit</td><td>Google Analytics</td><td>1,205</td><td>1,138</td><td>+67</td><td class="wow-pos">▲ +5.9%</td></tr>
+            <tr class="rate-row"><td>Form Completion Rate (Step 3 ÷ Step 1)</td><td>Calculated</td><td>79.2%</td><td>76.3%</td><td>+2.9pp</td><td class="wow-neu">▲ +3.8%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ACTIVATION -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        🎯 ACTIVATION
+        <span class="toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <table>
+          <thead><tr>
+            <th>Metric</th><th>Source</th>
+            <th>Current Wk</th><th>Prev Wk</th><th>Change</th><th>% Change</th>
+          </tr></thead>
+          <tbody>
+            <tr><td>First Artist Claimed</td><td>Braze (artist_claimed)</td><td>1,346</td><td>1,040</td><td>+306</td><td class="wow-pos">▲ +29.4%</td></tr>
+            <tr><td>Update Profile</td><td>Braze</td><td>5,145</td><td>5,148</td><td>−3</td><td class="wow-neu">▼ −0.1%</td></tr>
+            <tr><td>Added Integration</td><td>Braze</td><td>723</td><td>684</td><td>+39</td><td class="wow-pos">▲ +5.7%</td></tr>
+            <tr><td>Publish Event</td><td>Braze (published event)</td><td>54,407</td><td>52,104</td><td>+2,303</td><td class="wow-neu">▲ +4.4%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- EVENT VISIBILITY & REACH -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        📡 EVENT VISIBILITY &amp; REACH
+        <span class="toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <table>
+          <thead><tr>
+            <th>Metric</th><th>Source</th>
+            <th>Current Wk</th><th>Prev Wk</th><th>Change</th><th>% Change</th>
+          </tr></thead>
+          <tbody>
+            <tr><td>Copy Widget Code</td><td>Braze (Click Copy Widget Code)</td><td>1,023</td><td>868</td><td>+155</td><td class="wow-pos">▲ +17.9%</td></tr>
+            <tr><td>Click Get API Key</td><td>Braze</td><td>116</td><td>89</td><td>+27</td><td class="wow-pos">▲ +30.3%</td></tr>
+            <tr><td>View Smart Link</td><td>Braze (used_smart_link)</td><td>670</td><td>683</td><td>−13</td><td class="wow-neu">▼ −1.9%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- FAN ENGAGEMENT -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        🎵 FAN ENGAGEMENT
+        <span class="toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <table>
+          <thead><tr>
+            <th>Metric</th><th>Source</th>
+            <th>Current Wk</th><th>Prev Wk</th><th>Change</th><th>% Change</th>
+          </tr></thead>
+          <tbody>
+            <tr><td>Post on PTT</td><td>Braze</td><td>2,388</td><td>2,386</td><td>+2</td><td class="wow-neu">▲ +0.1%</td></tr>
+            <tr><td>Email Builder</td><td>Braze</td><td>1,252</td><td>1,378</td><td>−126</td><td class="wow-neg">▼ −9.1%</td></tr>
+            <tr><td>Ad Manager Campaigns</td><td>Braze (New Ad Manager Campaign)</td><td>1,175</td><td>1,052</td><td>+123</td><td class="wow-pos">▲ +11.7%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PROMOTION & GROWTH -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        📣 PROMOTION &amp; GROWTH
+        <span class="toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <table>
+          <thead><tr>
+            <th>Metric</th><th>Source</th>
+            <th>Current Wk</th><th>Prev Wk</th><th>Change</th><th>% Change</th>
+          </tr></thead>
+          <tbody>
+            <tr><td>Releases Created</td><td>Braze (Create a Release)</td><td>698</td><td>586</td><td>+112</td><td class="wow-pos">▲ +19.1%</td></tr>
+            <tr><td>Presales Created</td><td>Braze</td><td>—</td><td>1</td><td>—</td><td><span style="color:#94a3b8;font-size:11px;font-style:italic">not reporting via API</span></td></tr>
+            <tr><td>Merch Links Added</td><td>Braze (Add merch links to Profile)</td><td>36</td><td>30</td><td>+6</td><td class="wow-pos">▲ +20.0%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ENGAGEMENT & MONETIZATION -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        💰 ENGAGEMENT &amp; MONETIZATION
+        <span class="toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <table>
+          <thead><tr>
+            <th>Metric</th><th>Source</th>
+            <th>Current Wk</th><th>Prev Wk</th><th>Change</th><th>% Change</th>
+          </tr></thead>
+          <tbody>
+            <tr><td colspan="6" style="background:#F5E8FA;color:#63346C;font-weight:700;font-size:12px;padding:7px 20px;">ENGAGEMENT</td></tr>
+            <tr><td>Avg Daily Active Users</td><td>Braze (KPI API)</td><td>3,818</td><td>3,725</td><td>+93</td><td class="wow-neu">▲ +2.5%</td></tr>
+            <tr><td>Total Sessions</td><td>Google Analytics</td><td>46,360</td><td>45,019</td><td>+1,341</td><td class="wow-neu">▲ +3.0%</td></tr>
+            <tr><td>Sessions from Braze</td><td>Google Analytics</td><td>6,468</td><td>6,437</td><td>+31</td><td class="wow-neu">▲ +0.5%</td></tr>
+            <tr class="rate-row"><td>% Sessions from Braze</td><td>Calculated</td><td>13.95%</td><td>14.30%</td><td>−0.35pp</td><td class="wow-neu">▼ −2.4%</td></tr>
+            <tr><td colspan="6" style="background:#F5E8FA;color:#63346C;font-weight:700;font-size:12px;padding:7px 20px;">MONETIZATION</td></tr>
+            <tr><td>Total Purchases</td><td>Salesforce</td><td>218</td><td>151</td><td>+67</td><td class="wow-pos">▲ +44.4%</td></tr>
+            <tr><td>First Time Purchasers</td><td>Salesforce</td><td>65</td><td>61</td><td>+4</td><td class="wow-pos">▲ +6.6%</td></tr>
+            <tr class="rate-row"><td>% Repeat Purchasers</td><td>Calculated</td><td>70.2%</td><td>59.6%</td><td>+10.6pp</td><td class="wow-pos">▲ +17.8%</td></tr>
+            <tr><td>Purchases (Braze Attributed)</td><td>Salesforce</td><td>69</td><td>41</td><td>+28</td><td class="wow-pos">▲ +68.3%</td></tr>
+            <tr><td>First-Time Purchases (Braze Attr.)</td><td>Salesforce</td><td>18</td><td>—</td><td>—</td><td>—</td></tr>
+            <tr class="rate-row"><td>% Purchases from Braze</td><td>Calculated</td><td>31.7%</td><td>27.2%</td><td>+4.5pp</td><td class="wow-pos">▲ +16.5%</td></tr>
+            <tr><td>Revenue — Braze Product Level</td><td>Braze (Purchase Events)</td><td>$23,427.65</td><td>$18,078.43</td><td>+$5,349.22</td><td class="wow-pos">▲ +29.6%</td></tr>
+            <tr><td>Purchase Quantity — Braze Product Level</td><td>Braze (Purchase Events)</td><td>210</td><td>140</td><td>+70</td><td class="wow-pos">▲ +50.0%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PRODUCT MONETIZATION -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        🛍️ PRODUCT MONETIZATION
+        <span class="toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <table>
+          <thead><tr>
+            <th>Metric</th><th>Source</th>
+            <th>Current Wk<br><small style="font-weight:400;color:#D4A0DC">Mar 7</small></th>
+            <th>Prev Wk<br><small style="font-weight:400;color:#D4A0DC">Feb 28</small></th>
+            <th>Wk −2<br><small style="font-weight:400;color:#D4A0DC">Feb 21</small></th>
+            <th>Change</th><th>% Change</th>
+          </tr></thead>
+          <tbody>
+            <tr><td colspan="7" style="background:#F5E8FA;color:#63346C;font-weight:700;font-size:12px;padding:7px 20px;">📧 PROMOTED EMAIL — Paid Campaign Feature &nbsp;·&nbsp; Source: Tableau</td></tr>
+            <tr><td>Estimated Revenue</td><td>Tableau</td><td>$16,275.33</td><td>$14,287.36</td><td>$13,090.24</td><td>+$1,987.97</td><td class="wow-pos">▲ +13.9%</td></tr>
+            <tr><td>Nb Campaigns</td><td>Tableau</td><td>133</td><td>110</td><td>126</td><td>+23</td><td class="wow-pos">▲ +20.9%</td></tr>
+            <tr><td>Nb Artists</td><td>Tableau</td><td>102</td><td>90</td><td>98</td><td>+12</td><td class="wow-pos">▲ +13.3%</td></tr>
+            <tr><td>Nb Managers</td><td>Tableau</td><td>106</td><td>90</td><td>99</td><td>+16</td><td class="wow-pos">▲ +17.8%</td></tr>
+            <tr><td>Nb Emails Estimated Reach</td><td>Tableau</td><td>266,142</td><td>218,124</td><td>222,457</td><td>+48,018</td><td class="wow-pos">▲ +22.0%</td></tr>
+            <tr class="rate-row"><td>Avg Emails per Campaign</td><td>Tableau</td><td>2,001</td><td>1,983</td><td>1,766</td><td>+18</td><td class="wow-neu">▲ +0.9%</td></tr>
+            <tr class="rate-row"><td>Avg Rev per Campaign</td><td>Tableau</td><td>$122.37</td><td>$129.89</td><td>$103.89</td><td>−$7.52</td><td class="wow-neu">▼ −5.8%</td></tr>
+            <tr><td colspan="7" style="background:#F5E8FA;color:#63346C;font-weight:700;font-size:12px;padding:7px 20px;">✉️ EMAIL BUILDER — Freemium Email Product (Upsell Revenue) &nbsp;·&nbsp; Source: Tableau</td></tr>
+            <tr><td>Revenue (Upsell)</td><td>Tableau</td><td>$1,685.90</td><td>$2,770.13</td><td>$1,933.09</td><td>−$1,084.23</td><td class="wow-neg">▼ −39.2%</td></tr>
+            <tr><td>Nb Emails Sent</td><td>Tableau</td><td>2,663,219</td><td>2,681,646</td><td>2,054,729</td><td>−18,427</td><td class="wow-neu">▼ −0.7%</td></tr>
+            <tr><td>Nb Campaigns</td><td>Tableau</td><td>796</td><td>779</td><td>655</td><td>+17</td><td class="wow-neu">▲ +2.2%</td></tr>
+            <tr><td>Nb Managers</td><td>Tableau</td><td>504</td><td>483</td><td>461</td><td>+21</td><td class="wow-neu">▲ +4.3%</td></tr>
+            <tr><td>Nb Artists</td><td>Tableau</td><td>541</td><td>508</td><td>484</td><td>+33</td><td class="wow-pos">▲ +6.5%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /sections -->
+
+  <!-- 4-Week Trend Table -->
+  <div class="trend-table-wrap">
+    <h3>📈 4-Week Trend — Key Metrics</h3>
+    <table>
+      <thead><tr>
+        <th>Metric</th>
+        <th>Week −3<br><small style="font-weight:400">Feb 14</small></th>
+        <th>Week −2<br><small style="font-weight:400">Feb 21</small></th>
+        <th>Week −1<br><small style="font-weight:400">Feb 28</small></th>
+        <th>Current<br><small style="font-weight:400">Mar 7</small></th>
+        <th>4wk Avg</th>
+        <th>vs Avg</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>Total Signups (Braze)</td><td>1,790</td><td>1,764</td><td>1,679</td><td><strong>2,260</strong></td><td>1,873</td><td class="wow-pos">▲ +20.7%</td></tr>
+        <tr><td>First Artist Claimed</td><td>1,190</td><td>1,113</td><td>1,040</td><td><strong>1,346</strong></td><td>1,172</td><td class="wow-pos">▲ +14.8%</td></tr>
+        <tr><td>Avg Daily Active Users</td><td>3,737</td><td>3,641</td><td>3,725</td><td><strong>3,818</strong></td><td>3,730</td><td class="wow-neu">▲ +2.4%</td></tr>
+        <tr><td>Total Sessions</td><td>46,705</td><td>44,637</td><td>45,019</td><td><strong>46,360</strong></td><td>45,680</td><td class="wow-neu">▲ +1.5%</td></tr>
+        <tr><td>Events Published</td><td>50,069</td><td>49,758</td><td>52,104</td><td><strong>54,407</strong></td><td>51,585</td><td class="wow-pos">▲ +5.5%</td></tr>
+        <tr><td>Total Purchases</td><td>194</td><td>188</td><td>151</td><td><strong>218</strong></td><td>188</td><td class="wow-pos">▲ +16.0%</td></tr>
+        <tr><td>Promoted Email Revenue <span style="color:#BE70CC;font-size:11px;font-style:italic">(Tableau)</span></td><td style="color:#94a3b8">—</td><td>$13,090</td><td>$14,287</td><td><strong>$16,275</strong></td><td style="color:#64748b;font-size:12px">3wk avg: $14,551</td><td class="wow-pos">▲ +11.8% vs avg</td></tr>
+        <tr><td>Email Builder Revenue <span style="color:#BE70CC;font-size:11px;font-style:italic">(Tableau)</span></td><td style="color:#94a3b8">—</td><td>$1,933</td><td>$2,770</td><td><strong>$1,686</strong></td><td style="color:#64748b;font-size:12px">3wk avg: $2,130</td><td class="wow-neg">▼ −20.8% vs avg</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div><!-- /tab-lifecycle -->
+
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- TAB 2: CANVAS PERFORMANCE                                      -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div id="tab-canvas" class="tab-panel">
+
+  <div style="background:#63346C;color:white;padding:8px 32px;font-size:12px;font-weight:600;">
+    Canvas data period: Current Week Mar 1–6, 2026 (entries/conversions/revenue) &nbsp;·&nbsp; Email stats (sends/opens/clicks) from <em>canvas/data_summary</em> Mar 1–7 &nbsp;·&nbsp; Previous Week Feb 22–28, 2026 &nbsp;·&nbsp; Source: Braze API
+  </div>
+
+  <!-- Canvas Insights -->
+  <div class="insights-bar">
+    <div class="insights-title">💡 Top Insights — Canvas Performance, Mar 1–7, 2026</div>
+    <ul class="insights-list">
+      <li><strong>Total sends fell <span class="ins-neg">▼ −57.1% WoW</span></strong> (376,565 → 161,568) — almost entirely driven by two canvases: <strong>User Feature Adoption v1.2</strong> dropped <span class="ins-neg">▼ −67.3%</span> (226,722 → 74,163) and <strong>Widget Adoption</strong> dropped <span class="ins-neg">▼ −90.7%</span> (69,200 → 6,459). Both likely reflect a scheduled audience refresh rather than a program issue; all other canvases were stable or growing.</li>
+      <li><strong>Unique clicks fell <span class="ins-neg">▼ −17.5% WoW</span></strong> (1,924 → 1,587) — driven by the same two high-volume canvases. Excluding them, engagement improved: <strong>Draft Completion Encouragement</strong> clicks surged <span class="ins-pos">▲ +138.5%</span> (13 → 31), and Promote Your New Event, Re-engagement, and Presale canvases all held steady or gained.</li>
+      <li><strong>Revenue improved across all three measurement sources</strong> despite the volume decline — see the Revenue context block below for detail. <strong>Draft Completion Encouragement</strong> remains the #1 revenue canvas at $12,672.80 (sends <span class="ins-pos">▲ +6.1% WoW</span>), and the Salesforce Braze attach rate reached a new high of <span class="ins-pos">31.7%</span>, up from 21.6% four weeks ago.</li>
+      <li><strong>Can We Still Talk to You?</strong> sends declined <span class="ins-neg">▼ −26.1% WoW</span> (7,252 → 5,361) — the largest individual-canvas drop outside the high-volume pair. <strong>Two Weeks Inactive</strong> held nearly flat (−0.8%) while <strong>Three Weeks Inactive</strong> grew <span class="ins-pos">▲ +4.5%</span>, suggesting the mid/late re-engagement funnel remains healthy.</li>
+      <li><strong>Presale Reminder</strong> led sends growth at <span class="ins-pos">▲ +22.9% WoW</span> (363 → 446); <strong>Weekly Events Spotlight V2</strong> and <strong>Promote Your New Event</strong> both grew modestly (<span class="ins-pos">+5.3%</span> and <span class="ins-pos">+4.2%</span>), providing stability in the up-sell segment.</li>
+    </ul>
+  </div>
+
+  <!-- Summary cards -->
+  <div class="summary">
+    <div class="card red">
+      <div class="label">Total Sends — Actual Reach</div>
+      <div class="value">161,568</div>
+      <div class="wow neg">▼ −57.1% WoW &nbsp;·&nbsp; prev 376,565</div>
+    </div>
+    <div class="card red">
+      <div class="label">Unique Clicks</div>
+      <div class="value">1,587</div>
+      <div class="wow neg">▼ −17.5% WoW &nbsp;·&nbsp; prev 1,924</div>
+    </div>
+  </div>
+
+  <!-- Revenue context block -->
+  <div style="margin: 12px 32px 0; background: #fffbeb; border-radius: 10px; border-left: 4px solid #FFE18E; padding: 14px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+    <div style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:12px;">⚠ Revenue — Three Sources, Three Definitions &nbsp;·&nbsp; Week of Mar 1–7, 2026</div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;">
+
+      <div style="flex:1;min-width:200px;background:white;border-radius:8px;padding:12px 16px;border-top:3px solid #FFE18E;box-shadow:0 1px 2px rgba(0,0,0,0.05)">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;font-weight:600;">Braze Attributed <em style="font-weight:400">*est.</em></div>
+        <div style="font-size:24px;font-weight:700;color:#1a202c;margin-top:3px;line-height:1;">$23,428</div>
+        <div style="font-size:12px;font-weight:600;color:#16a34a;margin-top:4px;">▲ +29.6% WoW &nbsp;·&nbsp; prev $18,078</div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:6px;line-height:1.4;">Self-reported within Braze conversion window. May double-count. <strong style="color:#64748b">Use directionally.</strong></div>
+      </div>
+
+      <div style="flex:1;min-width:200px;background:white;border-radius:8px;padding:12px 16px;border-top:3px solid #BE70CC;box-shadow:0 1px 2px rgba(0,0,0,0.05)">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;font-weight:600;">Tableau Estimated</div>
+        <div style="font-size:24px;font-weight:700;color:#1a202c;margin-top:3px;line-height:1;">$17,961</div>
+        <div style="font-size:12px;font-weight:600;color:#16a34a;margin-top:4px;">▲ +5.3% WoW &nbsp;·&nbsp; prev $17,057</div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:6px;line-height:1.4;">Promoted Email ($16,275) + Email Builder ($1,686). Reach × avg rev per campaign. <strong style="color:#64748b">Preferred for reporting.</strong></div>
+      </div>
+
+      <div style="flex:1;min-width:200px;background:white;border-radius:8px;padding:12px 16px;border-top:3px solid #16a34a;box-shadow:0 1px 2px rgba(0,0,0,0.05)">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;font-weight:600;">Salesforce Attach Rate</div>
+        <div style="font-size:24px;font-weight:700;color:#1a202c;margin-top:3px;line-height:1;">31.7%</div>
+        <div style="font-size:12px;font-weight:600;color:#16a34a;margin-top:4px;">▲ +4.5pp WoW &nbsp;·&nbsp; 69 of 218 purchases</div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:6px;line-height:1.4;">Share of total purchases with a Braze touchpoint per Salesforce. Up from 21.6% four weeks ago. <strong style="color:#64748b">Use for influence tracking.</strong></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts">
+    <div class="chart-box">
+      <h3>Sends by Canvas — Mar 1–7, 2026</h3>
+      <canvas id="sendsChart"></canvas>
+    </div>
+    <div class="chart-box">
+      <h3>Click Rate by Canvas — Mar 1–7, 2026</h3>
+      <canvas id="clickRateChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Canvas tables -->
+  <div class="canvas-section" id="canvasTableContainer"></div>
+
+</div><!-- /tab-canvas -->
+
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- TAB 3: SITE TRAFFIC                                            -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div id="tab-sitetraffic" class="tab-panel">
+
+  <div style="background:#63346C;color:white;padding:8px 32px;font-size:12px;font-weight:600;">
+    GA Landing Page Report: Week ending Mar 7, 2026 &nbsp;·&nbsp; Source: Google Analytics &nbsp;·&nbsp; Top 25 landing pages by sessions
+  </div>
+
+  <!-- Site Traffic Insights -->
+  <div class="insights-bar">
+    <div class="insights-title">💡 Top Insights — Site Traffic, Week Ending Mar 7, 2026</div>
+    <ul class="insights-list">
+      <li><strong>/login</strong> surged to 5,912 sessions — <span class="ins-pos">▲ +26.0% WoW</span> from 4,691 — reclaiming the #1 spot with a 17.7% key event rate, suggesting strong authenticated return traffic.</li>
+      <li><strong>/managed-accounts</strong> remains the conversion powerhouse: 1,079 key events at a 25.7% rate, even as revenue dipped to $260.93 from prior week levels.</li>
+      <li><strong>/my-account</strong> jumped <span class="ins-pos">▲ +56.5% WoW</span> (241 vs. 154), breaking into higher volume — worth monitoring for account management activity trends.</li>
+      <li><strong>/artist/ad-manager</strong> continues as a top acquisition page: 290 new users (44.3% new user rate), 32.9% key event rate, and $300 in GA revenue — all pointing to a high-intent audience.</li>
+      <li><strong>Total sessions</strong> reached 46,360 (<span class="ins-pos">▲ +3.0% WoW</span>), with <strong>14.0% attributed to Braze</strong> — consistent with prior weeks and a healthy channel contribution share.</li>
+    </ul>
+  </div>
+
+  <!-- Summary cards (Mar 7 data) -->
+  <div class="summary">
+    <div class="card green">
+      <div class="label">Total Sessions</div>
+      <div class="value">46,360</div>
+      <div class="wow pos">▲ +3.0% WoW · prev 45,019</div>
+    </div>
+    <div class="card green">
+      <div class="label">Sessions from Braze</div>
+      <div class="value">6,468</div>
+      <div class="wow pos">▲ +0.5% WoW · 14.0% of total</div>
+    </div>
+    <div class="card green">
+      <div class="label">Signup Completions (Step 3)</div>
+      <div class="value">1,205</div>
+      <div class="wow pos">▲ +5.9% WoW · prev 1,138</div>
+    </div>
+    <div class="card green">
+      <div class="label">Top Landing Page</div>
+      <div class="value" style="font-size:16px;font-family:monospace">/login</div>
+      <div class="wow pos">5,912 sessions · 17.7% key event rate</div>
+    </div>
+  </div>
+
+  <!-- Landing page table -->
+  <div class="sections" style="padding-top:16px;">
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        🌐 Top Landing Pages — Week Ending Mar 7, 2026 &nbsp;·&nbsp; WoW vs Feb 28
+        <span class="toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <table class="st-table">
+          <thead><tr>
+            <th style="text-align:left;min-width:200px">Landing Page</th>
+            <th style="text-align:right">Sessions<br><small style="font-weight:400;color:#BE70CC">Mar 7</small></th>
+            <th style="text-align:right">Prev Sessions<br><small style="font-weight:400;color:#BE70CC">Feb 28</small></th>
+            <th style="text-align:right">Sessions WoW</th>
+            <th style="text-align:right">Active Users</th>
+            <th style="text-align:right">New Users</th>
+            <th style="text-align:right">Avg Time/Session</th>
+            <th style="text-align:right">Key Events</th>
+            <th style="text-align:right">Revenue (GA)</th>
+            <th style="text-align:right">Key Event Rate</th>
+          </tr></thead>
+          <tbody>
+            <tr><td class="url-cell">/login</td><td>5,912</td><td>4,691</td><td><span class="wow-pos">▲ +26.0%</span></td><td>7,916</td><td>1,474</td><td>2m 12s</td><td>1,048</td><td>$78.46</td><td>17.7%</td></tr>
+            <tr><td class="url-cell">/managed-accounts</td><td>4,202</td><td>4,058</td><td><span class="wow-neu">▲ +3.5%</span></td><td>2,618</td><td>8</td><td>1m 06s</td><td>1,079</td><td>$260.93</td><td>25.7%</td></tr>
+            <tr><td class="url-cell">/managed-accounts/*</td><td>3,683</td><td>3,517</td><td><span class="wow-neu">▲ +4.7%</span></td><td>2,058</td><td>114</td><td>1m 19s</td><td>23</td><td>$410.28</td><td>54.7%</td></tr>
+            <tr><td class="url-cell">(not set)</td><td>3,321</td><td>3,484</td><td><span class="wow-neu">▼ −4.7%</span></td><td>1,659</td><td>519</td><td>1m 21s</td><td>72</td><td>$0.00</td><td>1.1%</td></tr>
+            <tr><td class="url-cell">/</td><td>2,088</td><td>2,189</td><td><span class="wow-neu">▼ −4.6%</span></td><td>1,611</td><td>69</td><td>1m 10s</td><td>456</td><td>$331.84</td><td>20.4%</td></tr>
+            <tr><td class="url-cell">/signup</td><td>1,661</td><td>1,644</td><td><span class="wow-neu">▲ +1.0%</span></td><td>1,527</td><td>470</td><td>3m 11s</td><td>456</td><td>$185.41</td><td>27.5%</td></tr>
+            <tr><td class="url-cell">/artist/events/{id}</td><td>937</td><td>823</td><td><span class="wow-pos">▲ +13.8%</span></td><td>876</td><td>375</td><td>3m 51s</td><td>815</td><td>$197.08</td><td>32.6%</td></tr>
+            <tr><td class="url-cell">/authenticated</td><td>923</td><td>987</td><td><span class="wow-neg">▼ −6.5%</span></td><td>841</td><td>3</td><td>2m 17s</td><td>186</td><td>$349.23</td><td>16.9%</td></tr>
+            <tr><td class="url-cell">/artist/events/* (variant)</td><td>795</td><td>782</td><td><span class="wow-neu">▲ +1.7%</span></td><td>754</td><td>302</td><td>1m 40s</td><td>225</td><td>$399.98</td><td>13.3%</td></tr>
+            <tr><td class="url-cell">/artist/ad-manager</td><td>654</td><td>641</td><td><span class="wow-neu">▲ +2.0%</span></td><td>632</td><td>290</td><td>3m 15s</td><td>581</td><td>$300.00</td><td>32.9%</td></tr>
+            <tr><td class="url-cell">/fanapp/home</td><td>528</td><td>602</td><td><span class="wow-neg">▼ −12.3%</span></td><td>435</td><td>186</td><td>1m 42s</td><td>88</td><td>$0.00</td><td>12.3%</td></tr>
+            <tr><td class="url-cell">/my-account</td><td>241</td><td>154</td><td><span class="wow-pos">▲ +56.5%</span></td><td>174</td><td>21</td><td>1m 25s</td><td>79</td><td>$99.96</td><td>31.5%</td></tr>
+            <tr><td class="url-cell">/artist/profile</td><td>208</td><td>204</td><td><span class="wow-neu">▲ +2.0%</span></td><td>204</td><td>30</td><td>1m 59s</td><td>23</td><td>$100.00</td><td>10.1%</td></tr>
+            <tr><td class="url-cell">/en</td><td>171</td><td>146</td><td><span class="wow-pos">▲ +17.1%</span></td><td>144</td><td>77</td><td>1m 22s</td><td>25</td><td>$0.00</td><td>9.9%</td></tr>
+            <tr><td class="url-cell">/artist-manager</td><td>155</td><td>166</td><td><span class="wow-neg">▼ −6.6%</span></td><td>91</td><td>19</td><td>3m 02s</td><td>19</td><td>$68.68</td><td>9.0%</td></tr>
+            <tr><td class="url-cell">/en/articles/70… (a)</td><td>153</td><td>141</td><td><span class="wow-pos">▲ +8.5%</span></td><td>126</td><td>85</td><td>48s</td><td>33</td><td>$0.00</td><td>9.8%</td></tr>
+            <tr><td class="url-cell">/artists/119375…</td><td>145</td><td style="color:#94a3b8">—</td><td><span class="wow-neu" style="color:#BE70CC;font-size:11px">✦ New</span></td><td>144</td><td>142</td><td>2s</td><td>0</td><td>$0.00</td><td>0.0%</td></tr>
+            <tr><td class="url-cell">/en/articles/70… (b)</td><td>139</td><td>130</td><td><span class="wow-pos">▲ +6.9%</span></td><td>117</td><td>47</td><td>2m 00s</td><td>85</td><td>$0.00</td><td>30.2%</td></tr>
+            <tr><td class="url-cell">/en/articles/91…</td><td>139</td><td>153</td><td><span class="wow-neg">▼ −9.2%</span></td><td>122</td><td>89</td><td>54s</td><td>25</td><td>$0.00</td><td>7.2%</td></tr>
+            <tr><td class="url-cell">/onboard</td><td>135</td><td>130</td><td><span class="wow-neu">▲ +3.8%</span></td><td>123</td><td>56</td><td>2m 11s</td><td>12</td><td>$0.00</td><td>8.9%</td></tr>
+            <tr><td class="url-cell">/en/articles/70… (c)</td><td>129</td><td>105</td><td><span class="wow-pos">▲ +22.9%</span></td><td>122</td><td>47</td><td>2m 49s</td><td>73</td><td>$100.00</td><td>27.1%</td></tr>
+            <tr><td class="url-cell">/managed-accounts/* (3)</td><td>126</td><td>161</td><td><span class="wow-neg">▼ −21.7%</span></td><td>110</td><td>7</td><td>2m 01s</td><td>57</td><td>$0.00</td><td>42.9%</td></tr>
+            <tr><td class="url-cell">/artist/home</td><td>123</td><td>152</td><td><span class="wow-neg">▼ −19.1%</span></td><td>113</td><td>16</td><td>2m 16s</td><td>13</td><td>$0.00</td><td>10.6%</td></tr>
+            <tr><td class="url-cell">/events</td><td>111</td><td style="color:#94a3b8">—</td><td><span class="wow-neu" style="color:#BE70CC;font-size:11px">✦ New</span></td><td>87</td><td>10</td><td>2m 51s</td><td>53</td><td>$225.00</td><td>44.1%</td></tr>
+            <tr><td class="url-cell">/artist-manager/*</td><td>102</td><td>123</td><td><span class="wow-neg">▼ −17.1%</span></td><td>90</td><td>23</td><td>4m 04s</td><td>57</td><td>$96.51</td><td>47.1%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Key Observations -->
+  <div style="padding: 0 32px 32px;">
+    <div style="background:white;border-radius:10px;padding:20px 24px;box-shadow:0 1px 3px rgba(0,0,0,0.07);">
+      <div style="font-size:13px;font-weight:700;color:#63346C;margin-bottom:10px;">📌 Key Observations — Week Ending Mar 7</div>
+      <div style="font-size:13px;color:#374151;line-height:1.7;">
+        <strong>/login</strong> dominates landing traffic at 5,912 sessions — up 26% from 4,691 the prior week. &nbsp;·&nbsp;
+        <strong>/managed-accounts</strong> still drives high key event volume (~1,079 events, 25.7% rate) though revenue dropped to $260.93 from $600. &nbsp;·&nbsp;
+        <strong>/artist/events/</strong> pages combined: 1,732 sessions with strong 32.6% and 13.3% key event rates and $597 combined revenue. &nbsp;·&nbsp;
+        <strong>/artist/ad-manager</strong> brings 290 new users (44.3% new user rate) and $300 revenue at 32.9% key event rate. &nbsp;·&nbsp;
+        <strong>/signup</strong> climbs to 1,661 sessions with 470 new users — a key acquisition funnel entry point.
+      </div>
+    </div>
+  </div>
+
+</div><!-- /tab-sitetraffic -->
+
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- TAB 4: METRIC DEFINITIONS                                      -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div id="tab-definitions" class="tab-panel">
+
+  <!-- Definitions Insights / How-to -->
+  <div class="insights-bar">
+    <div class="insights-title">📌 Dashboard Quick Reference — How to Use This Dashboard</div>
+    <ul class="insights-list">
+      <li><strong>WoW thresholds:</strong> Changes ≥ ±5% are highlighted green (positive) or red (negative). Smaller changes appear in gray — treat them as essentially flat.</li>
+      <li><strong>Canvas email stats</strong> (Sends, Opens, Clicks) are aggregated from step-level data via the Braze <em>canvas/data_summary</em> endpoint. Open rates > 100% can occur when recipients open emails sent in prior periods.</li>
+      <li><strong>Canvas revenue</strong> is Braze-attributed and may double-count users enrolled in multiple canvases. Use it for directional comparisons only — Salesforce is the source of truth for revenue.</li>
+      <li><strong>Site Traffic data</strong> comes from Google Analytics (GA4) Landing Page report exported weekly to Google Sheets. Session counts may differ slightly from Braze session data due to attribution methodology.</li>
+      <li><strong>Refresh cadence:</strong> This dashboard is updated weekly, typically on Mondays, covering the prior Sunday–Saturday period. Canvas entries reflect a 6-day window due to Braze API lag.</li>
+    </ul>
+  </div>
+
+  <div class="defs-section">
+
+    <!-- Data Sources -->
+    <div>
+      <div class="section-label">📡 Data Sources</div>
+      <div class="sources-grid">
+        <div class="source-card">
+          <div class="source-icon">🔵</div>
+          <div class="source-info">
+            <div class="source-name">Braze</div>
+            <div class="source-desc">Activation events, feature usage, canvas performance, and daily active users via Braze KPI API</div>
+          </div>
+        </div>
+        <div class="source-card">
+          <div class="source-icon">🟢</div>
+          <div class="source-info">
+            <div class="source-name">Google Analytics</div>
+            <div class="source-desc">Web sessions, signup funnel steps, landing page performance</div>
+          </div>
+        </div>
+        <div class="source-card">
+          <div class="source-icon">🟠</div>
+          <div class="source-info">
+            <div class="source-name">Salesforce</div>
+            <div class="source-desc">Purchase transactions, first-time buyer identification, Braze attribution</div>
+          </div>
+        </div>
+        <div class="source-card">
+          <div class="source-icon">🟣</div>
+          <div class="source-info">
+            <div class="source-name">Calculated</div>
+            <div class="source-desc">Derived metrics computed from two or more source values (rates, percentages, WoW changes)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Metric Definitions Table -->
+    <div class="defs-table-wrap">
+      <h3>📋 Metric Definitions</h3>
+      <table>
+        <thead><tr>
+          <th>Metric</th>
+          <th>Source</th>
+          <th>Definition</th>
+          <th>Notes</th>
+        </tr></thead>
+        <tbody>
+          <!-- ACQUISITION -->
+          <tr class="def-group-row"><td colspan="4">🎯 ACTIVATION</td></tr>
+          <tr><td>Total Signups (Braze)</td><td>Braze (BIT_signup)</td><td>New user registrations in the 7-day period, counted via Braze BIT_signup custom event</td><td>Used in 4-week trend table</td></tr>
+          <tr><td>Signup Step 1 (GA)</td><td>Google Analytics</td><td>Users who initiated the signup form (step 1 of the signup funnel)</td><td>May differ from Braze due to attribution</td></tr>
+          <tr><td>Signup Step 2 (GA)</td><td>Google Analytics</td><td>Users who completed step 2 of the signup form</td><td></td></tr>
+          <tr><td>Signup Step 3 (GA)</td><td>Google Analytics</td><td>Users who completed step 3 (final submission) of the signup funnel</td><td>Primary acquisition metric shown in summary card</td></tr>
+          <tr><td>Form Completion Rate</td><td>Calculated</td><td>Signup Step 3 ÷ Signup Step 1 — measures drop-off in the signup funnel</td><td>Higher is better</td></tr>
+          <tr><td>First Artist Claimed</td><td>Braze (artist_claimed)</td><td>Total artist_claimed events in the 7-day period via Braze. Includes first and subsequent claims by any user.</td><td>Key activation milestone. Sourced from artist_claimed Braze event starting Mar 2026.</td></tr>
+
+          <!-- EVENT VISIBILITY -->
+          <tr class="def-group-row"><td colspan="4">📡 EVENT VISIBILITY &amp; REACH</td></tr>
+          <tr><td>Update Profile</td><td>Braze (Update Profile)</td><td>Total "Update Profile" custom events fired platform-wide in the period</td><td></td></tr>
+          <tr><td>Added Integration</td><td>Braze (Added Integration)</td><td>Total "Added Integration" events — artists connecting a third-party integration</td><td></td></tr>
+          <tr><td>Publish Event</td><td>Braze (published event)</td><td>Total "published event" custom events — events published by artists on the platform</td><td>Platform health indicator</td></tr>
+          <tr><td>Copy Widget Code</td><td>Braze (Click Copy Widget Code)</td><td>Total clicks on "Copy Widget Code" — artists installing the Bandsintown website widget</td><td></td></tr>
+          <tr><td>Click Get API Key</td><td>Braze (Click Get API Key)</td><td>Total clicks on "Get API Key" — developer/API access interest</td><td></td></tr>
+          <tr><td>View Smart Link</td><td>Braze (used_smart_link)</td><td>Total "used_smart_link" events — Smart Link views or interactions</td><td></td></tr>
+
+          <!-- PROMOTION & GROWTH -->
+          <tr class="def-group-row"><td colspan="4">📣 PROMOTION &amp; GROWTH</td></tr>
+          <tr><td>Post on PTT</td><td>Braze (Post on PTT)</td><td>Total "Post on PTT" events — Promote to Fans posts created platform-wide</td><td>PTT = Promote to Fans tool</td></tr>
+          <tr><td>Email Builder</td><td>Braze (Email Builder)</td><td>Total "Email Builder" events — fan email campaigns created via the Email Builder tool</td><td></td></tr>
+          <tr><td>Ad Manager Campaigns</td><td>Braze (New Ad Manager Campaign)</td><td>Total "New Ad Manager Campaign" events — new paid promotion campaigns created</td><td></td></tr>
+          <tr><td>Releases Created</td><td>Braze (Create a Release)</td><td>Total "Create a Release" events — music releases created platform-wide</td><td></td></tr>
+          <tr><td>Merch Links Added</td><td>Braze (Add merch links to Profile)</td><td>Total "Add merch links to Profile" events — merchandise links added by artists</td><td></td></tr>
+
+          <!-- ENGAGEMENT & MONETIZATION -->
+          <tr class="def-group-row"><td colspan="4">💰 ENGAGEMENT &amp; MONETIZATION</td></tr>
+          <tr><td>Avg Daily Active Users</td><td>Braze (KPI API)</td><td>Average of daily unique active user counts across all 7 days in the reporting period, pulled via Braze KPI DAU endpoint</td><td>Pulled automatically via API</td></tr>
+          <tr><td>Total Sessions</td><td>Google Analytics</td><td>Total web sessions recorded on the platform for the 7-day period</td><td></td></tr>
+          <tr><td>Sessions from Braze</td><td>Google Analytics</td><td>Sessions attributed to Braze email/push campaigns via UTM parameters</td><td></td></tr>
+          <tr><td>% Sessions from Braze</td><td>Calculated</td><td>Sessions from Braze ÷ Total Sessions</td><td>Measures Braze-driven traffic share</td></tr>
+          <tr><td>Total Purchases</td><td>Salesforce</td><td>Total paid transactions on the platform in the 7-day period</td><td>Source of truth for revenue</td></tr>
+          <tr><td>First Time Purchasers</td><td>Salesforce</td><td>Buyers making their first-ever purchase on the platform</td><td></td></tr>
+          <tr><td>% Repeat Purchasers</td><td>Calculated</td><td>(Total Purchases − First Time Purchasers) ÷ Total Purchases</td><td></td></tr>
+          <tr><td>Purchases (Braze Attributed)</td><td>Salesforce</td><td>Purchases where the buyer was influenced by a Braze campaign, per Salesforce attribution</td><td></td></tr>
+          <tr><td>% Purchases from Braze</td><td>Calculated</td><td>Braze Attributed Purchases ÷ Total Purchases</td><td></td></tr>
+          <tr><td>Revenue (Canvas Attributed)</td><td>Braze API</td><td>Revenue attributed to the canvas by Braze based on conversion events within the attribution window. Can double-count if a user is enrolled in multiple canvases simultaneously. Directional only.</td><td>For relative canvas comparison only</td></tr>
+          <tr><td>Revenue — Braze Product Level</td><td>Braze (Purchase Events)</td><td>Actual purchase events logged in Braze via the purchases API (product: "Ad Manager Email Campaign Purchase"). Each purchase counted once, no attribution overlap. Used as the primary Braze revenue figure.</td><td>Preferred revenue metric for validation</td></tr>
+
+          <!-- CANVAS PERFORMANCE -->
+          <tr class="def-group-row"><td colspan="4">✉️ CANVAS PERFORMANCE</td></tr>
+          <tr><td>Canvas Entries</td><td>Braze API</td><td>Total users who entered the canvas during the 7-day period</td><td>Pulled via get_canvas_data_series</td></tr>
+          <tr><td>Sends</td><td>Braze API</td><td>Total email messages sent across all steps in the canvas</td><td>Summed from step_stats email data. Shown as N/A when step_stats not returned by API.</td></tr>
+          <tr><td>Unique Opens</td><td>Braze API</td><td>Unique recipients who opened at least one email in the canvas</td><td></td></tr>
+          <tr><td>Open Rate</td><td>Calculated</td><td>Unique Opens ÷ Sends</td><td></td></tr>
+          <tr><td>Unique Clicks</td><td>Braze API</td><td>Unique recipients who clicked at least one link in a canvas email</td><td></td></tr>
+          <tr><td>Click Rate</td><td>Calculated</td><td>Unique Clicks ÷ Sends</td><td></td></tr>
+          <tr><td>Conversions</td><td>Braze API</td><td>Users who completed the canvas conversion event (purchase or other configured goal)</td><td>From total_stats.conversions</td></tr>
+
+          <!-- SITE TRAFFIC -->
+          <tr class="def-group-row"><td colspan="4">🌐 SITE TRAFFIC</td></tr>
+          <tr><td>Landing Page Sessions</td><td>Google Analytics</td><td>Sessions that started on a given landing page URL during the reporting period</td><td>Data from GA4 Landing Page report exported to Google Sheet</td></tr>
+          <tr><td>Active Users</td><td>Google Analytics</td><td>Users who had at least one engaged session originating from that landing page</td><td>May exceed session count due to GA4 user counting methodology</td></tr>
+          <tr><td>Key Events</td><td>Google Analytics</td><td>Conversion-type events (e.g. sign ups, purchases) triggered during sessions starting on that page</td><td></td></tr>
+          <tr><td>Key Event Rate</td><td>Google Analytics</td><td>Key Events ÷ Sessions for that landing page</td><td>Higher = more conversion-efficient landing page</td></tr>
+          <tr><td>Revenue (GA)</td><td>Google Analytics</td><td>E-commerce revenue attributed to sessions starting on that landing page</td><td>May differ from Salesforce revenue due to attribution methodology</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div><!-- /tab-definitions -->
+
+
+<!-- ── Scripts ─────────────────────────────────────────────────── -->
+<script>
+// ── Tab switching ─────────────────────────────────────────────────
+function showTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── Section collapse ──────────────────────────────────────────────
+function toggleSection(header) {
+  const body = header.nextElementSibling;
+  const toggle = header.querySelector('.toggle');
+  body.classList.toggle('collapsed');
+  toggle.textContent = body.classList.contains('collapsed') ? '▸' : '▾';
+}
+
+// ── Lifecycle section table column styling ─────────────────────────
+// Apply inline styles so current (col 3) is bold/dark and prev (col 4) is muted.
+// Using JS to guarantee these beat any CSS specificity conflicts.
+document.querySelectorAll('#tab-lifecycle .section-body table tbody tr').forEach(row => {
+  const tds = row.querySelectorAll('td');
+  if (tds.length >= 4) {
+    // col index 2 = Current Wk (bold, dark)
+    tds[2].style.cssText += 'color:#1a202c;font-size:13px;font-weight:700;font-style:normal;';
+    // col index 3 = Prev Wk (muted grey)
+    tds[3].style.cssText += 'color:#64748b;font-size:12px;font-weight:400;font-style:normal;';
+  }
+});
+
+// ── Lifecycle charts ──────────────────────────────────────────────
+const weeks = ['Feb 14', 'Feb 21', 'Feb 28', 'Mar 7'];
+
+function mkLine(id, data, color) {
+  new Chart(document.getElementById(id), {
+    type: 'line',
+    data: {
+      labels: weeks,
+      datasets: [{ data, borderColor: color, backgroundColor: color + '22',
+        fill: true, tension: 0.3, pointRadius: 4, pointBackgroundColor: color, borderWidth: 2 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+        y: { min: 0, ticks: { font: { size: 10 },
+          callback: v => v >= 1000 ? (v/1000).toFixed(1)+'K' : v },
+          grid: { color: '#f1f5f9' } }
+      }
+    }
+  });
+}
+
+mkLine('signupTrend',  [1790, 1764, 1679, 2260], '#BE70CC');
+mkLine('dauTrend',     [3737, 3641, 3725, 3818], '#16a34a');
+mkLine('purchaseTrend',[194,  188,  151,  218],  '#dc2626');
+mkLine('sessionTrend', [46705,44637,45019,46360],'#FFE18E');
+
+// ── Canvas data ───────────────────────────────────────────────────
+// Fields: group, name, goal, noStep (step data unavailable),
+//         ce/pe (curr/prev entries), cs/co/ck (sends/opens/clicks),
+//         cc/pc (curr/prev conversions), cr/pr (curr/prev revenue — canvas attributed)
+// Current week: Mar 1–6, 2026 (6 days). Previous week: Feb 22–28, 2026.
+const CANVASES = [
+  // cs/co/ck = curr sends/unique_opens/unique_clicks (Mar 1–7, step-aggregated)
+  // ps = prev sends, pk = prev clicks (Feb 22–28, step-aggregated via Braze API)
+  { group:"🚀 ONBOARDING",                name:"New User Onboarding",            goal:"Artist Claimed",
+    ce:1177,  pe:1204,  cs:6574,  ps:6652,  co:3280,  ck:250,  pk:210,  cc:641, pc:625, cr:888.05,   pr:504.29   },
+  { group:"🎯 UP-SELL: New Campaign",      name:"Promote Your New Event",         goal:"Promoted Email Purchase",
+    ce:6245,  pe:6501,  cs:6837,  ps:6564,  co:4416,  ck:142,  pk:122,  cc:30,  pc:24,  cr:4684.09,  pr:3069.04  },
+  { group:"🎯 UP-SELL: New Campaign",      name:"Weekly Events Spotlight V2",     goal:"Promoted Email Purchase",
+    ce:28340, pe:43409, cs:42424, ps:40288, co:27910, ck:287,  pk:257,  cc:9,   pc:13,  cr:808.86,   pr:1450.55  },
+  { group:"🎯 UP-SELL: New Campaign",      name:"Just Used Email Builder",        goal:"Promoted Email Purchase",
+    ce:249,   pe:277,   cs:234,   ps:237,   co:169,   ck:4,    pk:3,    cc:20,  pc:21,  cr:3260.73,  pr:3720.04  },
+  { group:"🎯 UP-SELL: New Campaign",      name:"Secondary Boost CTA",            goal:"Promoted Email Purchase",
+    ce:0,     pe:0,     cs:0,     ps:0,     co:0,     ck:0,    pk:0,    cc:0,   pc:0,   cr:0,        pr:0        },
+  { group:"💳 UP-SELL: Complete Purchase", name:"Draft Completion Encouragement", goal:"Boost Purchase Completion",
+    ce:678,   pe:660,   cs:735,   ps:693,   co:455,   ck:31,   pk:13,   cc:87,  pc:73,  cr:12672.80, pr:12782.12 },
+  { group:"🔄 RE-ENGAGEMENT",              name:"Can We Still Talk to You?",      goal:"Session (Re-engagement)",
+    ce:6371,  pe:8227,  cs:5361,  ps:7252,  co:1049,  ck:170,  pk:181,  cc:86,  pc:95,  cr:0,        pr:0        },
+  { group:"🔄 RE-ENGAGEMENT",              name:"Two Weeks Inactive",             goal:"Session (Re-engagement)",
+    ce:9188,  pe:10343, cs:7151,  ps:7206,  co:4694,  ck:141,  pk:145,  cc:651, pc:685, cr:869.71,   pr:415.20   },
+  { group:"🔄 RE-ENGAGEMENT",              name:"Three Weeks Inactive",           goal:"Session (Re-engagement)",
+    ce:6663,  pe:7616,  cs:5630,  ps:5389,  co:4193,  ck:116,  pk:101,  cc:440, pc:452, cr:58.61,    pr:346.21   },
+  { group:"⚡ FEATURE ADOPTION",           name:"Widget Adoption",                goal:"Widget Installed",
+    ce:7029,  pe:66991, cs:6459,  ps:69200, co:6787,  ck:45,   pk:133,  cc:2,   pc:4,   cr:293.07,   pr:293.07   },
+  { group:"⚡ FEATURE ADOPTION",           name:"Presale Reminder",               goal:"Presale Created",
+    ce:356,   pe:0,     cs:446,   ps:363,   co:261,   ck:1,    pk:0,    cc:0,   pc:0,   cr:0,        pr:0        },
+  { group:"⚡ FEATURE ADOPTION",           name:"Presale Adoption",               goal:"Presale Created",
+    ce:4770,  pe:6314,  cs:5554,  ps:5999,  co:6315,  ck:47,   pk:49,   cc:0,   pc:2,   cr:97.58,    pr:59.08    },
+  { group:"⚡ FEATURE ADOPTION",           name:"User Feature Adoption v1.2",     goal:"Feature Adopted",
+    ce:5908,  pe:7989,  cs:74163, ps:226722,co:69828, ck:353,  pk:710,  cc:457, pc:577, cr:402.84,   pr:329.00   },
+];
+
+// ── Formatting helpers ────────────────────────────────────────────
+function n(v, type) {
+  if (v === null || v === undefined) return '—';
+  if (type === 'pct') {
+    const pct = v * 100, abs = Math.abs(pct), s = v > 0 ? '+' : '';
+    const cl  = abs < 5 ? 'wow-neu' : v > 0 ? 'wow-pos' : 'wow-neg';
+    const arr = v > 0 ? '▲' : v < 0 ? '▼' : '–';
+    return `<span class="${cl}">${arr} ${s}${pct.toFixed(1)}%</span>`;
+  }
+  if (type === 'rate') return (v*100).toFixed(1)+'%';
+  if (type === 'rev')  return '$'+ v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  return v.toLocaleString('en-US');
+}
+const wow  = (c,p) => p === 0 ? null : (c-p)/p;
+const rate = (a,b) => b === 0 ? null : a/b;
+
+const THEAD_HTML = `<thead><tr>
+  <th style="text-align:left;min-width:240px">Canvas</th>
+  <th>Curr Sends</th><th>Prev Sends</th><th>Sends WoW</th>
+  <th>Uniq Opens</th><th>Open Rate</th>
+  <th>Uniq Clicks</th><th>Click Rate</th>
+  <th>Curr Conv</th><th>Prev Conv</th><th>Conv WoW</th>
+  <th>Curr Rev (attributed)</th><th>Prev Rev (attributed)</th><th>Rev WoW</th>
+</tr></thead>`;
+
+const groups    = [...new Set(CANVASES.map(c => c.group))];
+const container = document.getElementById('canvasTableContainer');
+let totCS=0,totPS=0,totCO=0,totCK=0,totCC=0,totPC=0,totCR=0,totPR=0;
+
+groups.forEach(group => {
+  const items = CANVASES.filter(c => c.group === group);
+  container.innerHTML += `<div class="group-label">${group}</div>`;
+  const wrap = document.createElement('div');
+  wrap.className = 'table-wrapper';
+  const tbl = document.createElement('table');
+  tbl.innerHTML = THEAD_HTML + '<tbody></tbody>';
+  const tbody = tbl.querySelector('tbody');
+
+  items.forEach(c => {
+    const isZero = c.ce === 0 && c.cs === 0 && !c.noStep;
+    if (!isZero) {
+      totCS+=c.cs||0; totPS+=c.ps||0;
+      totCO+=c.co||0; totCK+=c.ck||0;
+      totCC+=c.cc; totPC+=c.pc; totCR+=c.cr; totPR+=c.pr;
+    }
+    const tr = document.createElement('tr');
+    if (isZero) tr.className = 'zero-row';
+    const goalTag = c.goal
+      ? `<br><small style="color:#BE70CC;font-style:italic;font-weight:400;font-size:11px">↳ ${c.goal}</small>`
+      : '';
+    const ns = c.noStep;
+    tr.innerHTML = `
+      <td style="text-align:left">${c.name}${isZero ? ' <span style="color:#94a3b8;font-size:11px">(inactive)</span>' : ''}${goalTag}</td>
+      <td>${ns ? '<span style="color:#94a3b8;font-size:11px;font-style:italic">n/a</span>' : n(c.cs)}</td>
+      <td>${ns ? '—' : (c.ps > 0 ? n(c.ps) : '—')}</td>
+      <td>${ns ? '—' : (c.ps > 0 ? (wow(c.cs,c.ps) !== null ? n(wow(c.cs,c.ps),'pct') : '—') : '—')}</td>
+      <td>${ns ? '—' : n(c.co)}</td>
+      <td>${ns ? '—' : (rate(c.co,c.cs) !== null ? n(rate(c.co,c.cs),'rate') : '—')}</td>
+      <td>${ns ? '—' : n(c.ck)}</td>
+      <td>${ns ? '—' : (rate(c.ck,c.cs) !== null ? n(rate(c.ck,c.cs),'rate') : '—')}</td>
+      <td>${n(c.cc)}</td><td>${n(c.pc)}</td>
+      <td>${wow(c.cc,c.pc) !== null ? n(wow(c.cc,c.pc),'pct') : '—'}</td>
+      <td>${n(c.cr,'rev')}</td><td>${n(c.pr,'rev')}</td>
+      <td>${wow(c.cr,c.pr) !== null ? n(wow(c.cr,c.pr),'pct') : '—'}</td>`;
+    tbody.appendChild(tr);
+  });
+  wrap.appendChild(tbl);
+  container.appendChild(wrap);
+});
+
+const totWrap = document.createElement('div');
+totWrap.className = 'table-wrapper';
+totWrap.style.cssText = 'margin-top:16px;border-radius:8px;';
+const totTbl = document.createElement('table');
+const hiddenHead = THEAD_HTML.replace('<thead>', '<thead style="visibility:collapse">');
+totTbl.innerHTML = hiddenHead + `<tbody><tr class="tfoot-row">
+  <td style="text-align:left;min-width:240px;padding-left:16px">TOTALS (active canvases)</td>
+  <td>${n(totCS)}</td><td>${totPS > 0 ? n(totPS) : '—'}</td><td>${totPS > 0 ? n(wow(totCS,totPS),'pct') : '—'}</td>
+  <td>${n(totCO)}</td><td>${rate(totCO,totCS) !== null ? n(rate(totCO,totCS),'rate') : '—'}</td>
+  <td>${n(totCK)}</td><td>${rate(totCK,totCS) !== null ? n(rate(totCK,totCS),'rate') : '—'}</td>
+  <td>${n(totCC)}</td><td>${n(totPC)}</td><td>${n(wow(totCC,totPC),'pct')}</td>
+  <td>${n(totCR,'rev')}</td><td>${n(totPR,'rev')}</td><td>${n(wow(totCR,totPR),'pct')}</td>
+</tr></tbody>`;
+totWrap.appendChild(totTbl);
+container.appendChild(totWrap);
+
+// ── Canvas charts ─────────────────────────────────────────────────
+const active = CANVASES.filter(c => c.cs > 0);
+const cLabels = active.map(c => c.name.replace(/ /g,'\n'));
+const clickRateVals = active.map(c => c.cs > 0 ? +((c.ck / c.cs) * 100).toFixed(2) : 0);
+const clickRateColors = clickRateVals.map(v =>
+  v >= 5 ? '#16a34a' : v >= 2 ? '#BE70CC' : '#94a3b8'
+);
+
+new Chart(document.getElementById('sendsChart'), {
+  type: 'bar',
+  data: {
+    labels: cLabels,
+    datasets: [
+      { label:'Sends (Mar 1–7)', data: active.map(c=>c.cs), backgroundColor:'#BE70CCcc', borderRadius:3 },
+    ]
+  },
+  options: { responsive:true, maintainAspectRatio:true,
+    plugins: { legend: { position:'top', labels:{ font:{size:10} } } },
+    scales: {
+      x: { ticks:{ font:{size:9} }, grid:{display:false} },
+      y: { min:0, ticks:{ font:{size:10}, callback: v => v>=1000?(v/1000).toFixed(0)+'K':v }, grid:{color:'#f1f5f9'} }
+    }
+  }
+});
+
+new Chart(document.getElementById('clickRateChart'), {
+  type: 'bar',
+  data: {
+    labels: cLabels,
+    datasets: [{ label:'Click Rate %',
+      data: clickRateVals,
+      backgroundColor: clickRateColors, borderRadius:3 }]
+  },
+  options: { responsive:true, maintainAspectRatio:true,
+    plugins: { legend:{display:false},
+      tooltip:{ callbacks:{ label: ctx => ctx.parsed.y.toFixed(2)+'%' } }
+    },
+    scales: {
+      x: { ticks:{font:{size:9}}, grid:{display:false} },
+      y: { min:0, ticks:{ font:{size:10}, callback: v=>v+'%' }, grid:{color:'#f1f5f9'} }
+    }
+  }
+});
+
+// ── Apply ±5% threshold to hardcoded lifecycle table cells ────────
+document.querySelectorAll('td.wow-pos, td.wow-neg').forEach(el => {
+  const m = el.textContent.match(/(\d+\.?\d*)%/);
+  if (m && parseFloat(m[1]) < 5) {
+    el.classList.remove('wow-pos', 'wow-neg');
+    el.classList.add('wow-neu');
+  }
+});
+
+// ── Move Source column to end in lifecycle section tables ──────────
+document.querySelectorAll('#tab-lifecycle .section-body table').forEach(table => {
+  const headerRow = table.querySelector('thead tr');
+  if (!headerRow) return;
+  const ths = headerRow.querySelectorAll('th');
+  if (ths.length < 2 || ths[1].textContent.trim() !== 'Source') return;
+  ths[1].classList.add('source-col');
+  headerRow.appendChild(ths[1]);
+  table.querySelectorAll('tbody tr').forEach(row => {
+    if (row.querySelector('td[colspan]')) return;
+    const tds = row.querySelectorAll('td');
+    if (tds.length < 2) return;
+    tds[1].classList.add('source-col');
+    row.appendChild(tds[1]);
+  });
+});
+</script>
+
+</body>
+</html>
